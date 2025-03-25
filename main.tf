@@ -218,7 +218,7 @@ resource "aws_ecs_task_definition" "ollama_openwebui" {
   container_definitions = jsonencode([
     {
       "name": "ollama",
-      "image": "ollama/ollama:latest",
+      "image": "590183928377.dkr.ecr.us-east-1.amazonaws.com/ollama:latest",
       "essential": true,
       "portMappings": [
         {
