@@ -206,13 +206,8 @@ resource "aws_ecs_cluster" "main" {
   name = "ecs-cluster"
 }
 
-resource "aws_service_discovery_http_namespace" "service_namespace" {
-  name        = "internal"
-  description = "HTTP namespace for internal services"
-}
-
-resource "aws_ecs_task_definition" "ollama_task" {
-  family                   = "ollama-task"
+resource "aws_ecs_task_definition" "ollama_openwebui" {
+  family                   = "ollama-openwebui-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = "512"
@@ -229,24 +224,9 @@ resource "aws_ecs_task_definition" "ollama_task" {
         {
           "containerPort": 11434,
           "protocol": "tcp"
-          "name": "ollama-port"
         }
       ]
-      // Додаткові змінні або logConfiguration можна додати за потребою
-    }
-  ])
-}
-
-resource "aws_ecs_task_definition" "openwebui_task" {
-  family                   = "openwebui-task"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "512"
-  memory                   = "1024"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_task_role.arn
-
-  container_definitions = jsonencode([
+    },
     {
       "name": "openwebui",
       "image": "ghcr.io/open-webui/open-webui:main",
@@ -257,52 +237,14 @@ resource "aws_ecs_task_definition" "openwebui_task" {
           "protocol": "tcp"
         }
       ],
-      "environment": [
+      "dependsOn": [
         {
-          "name": "OLLAMA_BASE_URL",
-          "value": "http://ollama.internal:11434"
+          "containerName": "ollama",
+          "condition": "START"
         }
       ]
     }
   ])
-}
-
-resource "aws_security_group" "ollama_sg" {
-  name   = "ecs-ollama-sg"
-  vpc_id = aws_vpc.main.id
-
-  ingress {
-    description = "Allow internal traffic to Ollama"
-    from_port   = 11434
-    to_port     = 11434
-    protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_security_group" "webui_sg" {
-  name   = "ecs-webui-sg"
-  vpc_id = aws_vpc.main.id
-
-  ingress {
-    description = "Allow internal traffic to WebUI"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 }
 
 resource "aws_security_group" "alb" {
@@ -382,46 +324,17 @@ resource "aws_lb_listener" "openwebui_listener" {
   }
 }
 
-resource "aws_ecs_service" "ollama_service" {
-  name                     = "ollama-service"
-  cluster                  = aws_ecs_cluster.main.id
-  task_definition          = aws_ecs_task_definition.ollama_task.arn
-  desired_count            = 1
-  launch_type              = "FARGATE"
+resource "aws_ecs_service" "ollama_openwebui" {
+  name            = "ollama-openwebui-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.ollama_openwebui.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
   enable_execute_command   = true
 
   network_configuration {
     subnets         = [for subnet in aws_subnet.private : subnet.id]
-    security_groups = [aws_security_group.ollama_sg.id]
-    assign_public_ip = false
-  }
-
-  service_connect_configuration {
-    enabled   = true
-    namespace = aws_service_discovery_http_namespace.service_namespace.arn
-
-    service {
-      port_name      = "ollama-port"
-      discovery_name = "ollama"
-      client_alias {
-        port     = 11434
-        dns_name = "ollama.internal"
-      }
-    }
-  }
-}
-
-resource "aws_ecs_service" "webui_service" {
-  name                     = "webui-service"
-  cluster                  = aws_ecs_cluster.main.id
-  task_definition          = aws_ecs_task_definition.openwebui_task.arn
-  desired_count            = 1
-  launch_type              = "FARGATE"
-  enable_execute_command   = true
-
-  network_configuration {
-    subnets         = [for subnet in aws_subnet.private : subnet.id]
-    security_groups = [aws_security_group.webui_sg.id]
+    security_groups = [aws_security_group.ecs_service.id]
     assign_public_ip = false
   }
 
@@ -433,6 +346,7 @@ resource "aws_ecs_service" "webui_service" {
 
   depends_on = [aws_lb_listener.openwebui_listener]
 }
+
 
 resource "aws_security_group" "rds_sg" {
   name   = "rds-sg"
