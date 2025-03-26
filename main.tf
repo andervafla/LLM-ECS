@@ -223,16 +223,21 @@ resource "aws_ecs_task_definition" "ollama_task" {
   container_definitions = jsonencode([
     {
       "name": "ollama",
-      "image": "590183928377.dkr.ecr.us-east-1.amazonaws.com/ollama:latest",
+      "image": "ollama/ollama:latest",
       "essential": true,
       "portMappings": [
         {
           "containerPort": 11434,
-          "protocol": "tcp"
+          "protocol": "tcp",
           "name": "ollama-port"
         }
+      ],
+      "environment": [
+        {
+          "name": "OLLAMA_HOST",
+          "value": "0.0.0.0"
+        }
       ]
-      // Додаткові змінні або logConfiguration можна додати за потребою
     }
   ])
 }
@@ -253,6 +258,7 @@ resource "aws_ecs_task_definition" "openwebui_task" {
       "essential": true,
       "portMappings": [
         {
+          "name": "webui-port",       // <--- Додано ім'я порту
           "containerPort": 8080,
           "protocol": "tcp"
         }
@@ -260,6 +266,14 @@ resource "aws_ecs_task_definition" "openwebui_task" {
       "environment": [
         {
           "name": "OLLAMA_BASE_URL",
+          "value": "http://ollama.internal:11434"
+        },
+        {
+          "name": "OLLAMA_API_OVERRIDE_BASE_URL",
+          "value": "http://ollama.internal:11434"
+        },
+        {
+          "name": "OLLAMA_API_BASE_URL",
           "value": "http://ollama.internal:11434"
         }
       ]
@@ -383,12 +397,13 @@ resource "aws_lb_listener" "openwebui_listener" {
 }
 
 resource "aws_ecs_service" "ollama_service" {
-  name                     = "ollama-service"
-  cluster                  = aws_ecs_cluster.main.id
-  task_definition          = aws_ecs_task_definition.ollama_task.arn
-  desired_count            = 1
-  launch_type              = "FARGATE"
-  enable_execute_command   = true
+  name                   = "ollama-service"
+  cluster                = aws_ecs_cluster.main.id
+  task_definition        = aws_ecs_task_definition.ollama_task.arn
+  desired_count          = 1
+  launch_type            = "FARGATE"
+  platform_version       = "1.4.0"
+  enable_execute_command = true
 
   network_configuration {
     subnets         = [for subnet in aws_subnet.private : subnet.id]
@@ -412,12 +427,13 @@ resource "aws_ecs_service" "ollama_service" {
 }
 
 resource "aws_ecs_service" "webui_service" {
-  name                     = "webui-service"
-  cluster                  = aws_ecs_cluster.main.id
-  task_definition          = aws_ecs_task_definition.openwebui_task.arn
-  desired_count            = 1
-  launch_type              = "FARGATE"
-  enable_execute_command   = true
+  name                   = "webui-service"
+  cluster                = aws_ecs_cluster.main.id
+  task_definition        = aws_ecs_task_definition.openwebui_task.arn
+  desired_count          = 1
+  launch_type            = "FARGATE"
+  platform_version       = "1.4.0"
+  enable_execute_command = true
 
   network_configuration {
     subnets         = [for subnet in aws_subnet.private : subnet.id]
@@ -432,6 +448,20 @@ resource "aws_ecs_service" "webui_service" {
   }
 
   depends_on = [aws_lb_listener.openwebui_listener]
+
+  service_connect_configuration {
+    enabled   = true
+    namespace = aws_service_discovery_http_namespace.service_namespace.arn
+
+    service {
+      port_name      = "webui-port"
+      discovery_name = "webui"
+      client_alias {
+        port     = 8080
+        dns_name = "webui.internal"
+      }
+    }
+  }
 }
 
 resource "aws_security_group" "rds_sg" {
@@ -439,9 +469,9 @@ resource "aws_security_group" "rds_sg" {
   vpc_id = aws_vpc.main.id
 
   ingress {
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
     security_groups = [aws_security_group.ecs_service.id]
   }
 
@@ -456,6 +486,16 @@ resource "aws_security_group" "rds_sg" {
     Name = "RDS Security Group"
   }
 }
+
+resource "aws_db_subnet_group" "rds_subnet_group" {
+  name       = "rds-subnet-group-ecs"
+  subnet_ids = values(aws_subnet.rds)[*].id  
+
+  tags = {
+    Name = "RDS Subnet Group"
+  }
+}
+
 
 resource "aws_db_subnet_group" "rds_subnet_group" {
   name       = "rds-subnet-group-ecs"
