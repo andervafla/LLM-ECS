@@ -207,8 +207,8 @@ resource "aws_cloudwatch_log_group" "openwebui_log_group" {
   retention_in_days = 7
 }
 
-resource "aws_cloudwatch_log_group" "grafana_agent_log_group" {
-  name              = "/ecs/grafana-agent"
+resource "aws_cloudwatch_log_group" "ollama_log_group" {
+  name              = "/ecs/ollama-service"
   retention_in_days = 7
 }
 
@@ -251,6 +251,14 @@ resource "aws_ecs_task_definition" "ollama_task" {
           "value": "0.0.0.0"
         }
       ]
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ollama-service",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ollama"
+        }
+      }
     }
   ])
 }
@@ -307,58 +315,6 @@ resource "aws_ecs_task_definition" "openwebui_task" {
     }
   ])
 }
-
-resource "aws_ecs_task_definition" "grafana_agent" {
-  family                   = "grafana-agent-flow"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-
-  container_definitions = jsonencode([
-    {
-      "name": "grafana-agent",
-      "image": "590183928377.dkr.ecr.us-east-1.amazonaws.com/ollama:latest",
-      "essential": true,
-      "command": ["--config.file=/etc/agent/agent-config.yaml", "--mode=flow"],
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/grafana-agent",
-          "awslogs-region": "us-east-1",
-          "awslogs-stream-prefix": "grafana-agent"
-        }
-      }
-    }
-  ])
-}
-
-resource "aws_security_group" "grafana_agent_sg" {
-  name   = "ecs-grafana-agent-sg"
-  vpc_id = aws_vpc.main.id
-
-  ingress {
-    description = "Allow all traffic within VPC"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = [aws_vpc.main.cidr_block]
-  }
-
-  egress {
-    description = "Allow outbound traffic to any destination"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "ECS Grafana Agent SG"
-  }
-}
-
 
 resource "aws_security_group" "ollama_sg" {
   name   = "ecs-ollama-sg"
@@ -541,25 +497,6 @@ resource "aws_ecs_service" "webui_service" {
       }
     }
   }
-}
-
-resource "aws_ecs_service" "grafana_agent" {
-  name            = "grafana-agent"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.grafana_agent.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = [for subnet in aws_subnet.private : subnet.id]
-    security_groups  = [aws_security_group.grafana_agent_sg.id]
-    assign_public_ip = false
-  }
-
-  deployment_minimum_healthy_percent = 50
-  deployment_maximum_percent         = 200
-
-  depends_on = [aws_cloudwatch_log_group.openwebui_log_group]  # або інша лог-група, якщо потрібно
 }
 
 
