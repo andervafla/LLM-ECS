@@ -1,5 +1,3 @@
-FROM grafana/agent:latest
+FROM prom/cloudwatch-exporter:latest
 
-COPY agent-config.yaml /etc/agent/agent-config.yaml
-
-CMD ["--config.file=/etc/agent/agent-config.yaml"]
+COPY cloudwatch_exporter_config.yml /config/cloudwatch_exporter_config.yml

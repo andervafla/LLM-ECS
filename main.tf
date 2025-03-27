@@ -212,6 +212,10 @@ resource "aws_cloudwatch_log_group" "ollama_log_group" {
   retention_in_days = 7
 }
 
+resource "aws_cloudwatch_log_group" "cloudwatch_log_group" {
+  name              = "/ecs/cloudwatch-exporter"
+  retention_in_days = 7
+}
 
 resource "aws_ecs_cluster" "main" {
   name = "ecs-cluster"
@@ -226,8 +230,8 @@ resource "aws_ecs_task_definition" "ollama_task" {
   family                   = "ollama-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "1024"         # збільшено ресурси
-  memory                   = "2048"         # збільшено ресурси
+  cpu                      = "1024"        
+  memory                   = "2048"         
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   task_role_arn            = aws_iam_role.ecs_task_role.arn
 
@@ -240,9 +244,9 @@ resource "aws_ecs_task_definition" "ollama_task" {
         {
           "name": "ollama-port",
           "containerPort": 11434,
-          "hostPort": 11434,            // явно вказано hostPort
+          "hostPort": 11434,           
           "protocol": "tcp",
-          "appProtocol": "http"         // додано appProtocol
+          "appProtocol": "http"       
         }
       ],
       "environment": [
@@ -312,6 +316,35 @@ resource "aws_ecs_task_definition" "openwebui_task" {
           "awslogs-stream-prefix": "openwebui"
         }
       }
+    },
+    {
+      "name": "cloudwatch-exporter",
+      "image": "your-repo/cloudwatch-exporter:latest",  // Замініть your-repo на ім'я вашого образу в реєстрі
+      "essential": false,
+      "portMappings": [
+        {
+          "containerPort": 9106,
+          "hostPort": 9106,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/cloudwatch-exporter",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "cloudwatch-exporter"
+        }
+      },
+      "command": [
+        "--config.file=/config/cloudwatch_exporter_config.yml"
+      ]
     }
   ])
 }

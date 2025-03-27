@@ -1,0 +1,14 @@
+region: us-east-1
+metrics:
+  - aws_namespace: "ContainerInsights"
+    aws_metric_name: "cpuUtilized"
+    aws_dimensions: [ClusterName, ServiceName, TaskId]
+    period_seconds: 60
+    delay_seconds: 600
+    statistics: [Average]
+  - aws_namespace: "ContainerInsights"
+    aws_metric_name: "memoryUtilized"
+    aws_dimensions: [ClusterName, ServiceName, TaskId]
+    period_seconds: 60
+    delay_seconds: 600
+    statistics: [Average]
