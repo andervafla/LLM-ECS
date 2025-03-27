@@ -1,6 +1,6 @@
-FROM ollama/ollama:latest
+FROM grafana/agent:latest
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY agent-config.yaml /etc/agent/agent-config.yaml
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/bin/agent"]
+CMD ["--config.file=/etc/agent/agent-config.yaml", "--mode=flow"]

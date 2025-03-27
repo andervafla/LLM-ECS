@@ -202,6 +202,17 @@ resource "aws_db_subnet_group" "this" {
 }
 
 
+resource "aws_cloudwatch_log_group" "openwebui_log_group" {
+  name              = "/ecs/openwebui-service"
+  retention_in_days = 7
+}
+
+resource "aws_cloudwatch_log_group" "grafana_agent_log_group" {
+  name              = "/ecs/grafana-agent"
+  retention_in_days = 7
+}
+
+
 resource "aws_ecs_cluster" "main" {
   name = "ecs-cluster"
 }
@@ -215,8 +226,8 @@ resource "aws_ecs_task_definition" "ollama_task" {
   family                   = "ollama-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "512"
-  memory                   = "1024"
+  cpu                      = "1024"         # збільшено ресурси
+  memory                   = "2048"         # збільшено ресурси
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
   task_role_arn            = aws_iam_role.ecs_task_role.arn
 
@@ -227,9 +238,11 @@ resource "aws_ecs_task_definition" "ollama_task" {
       "essential": true,
       "portMappings": [
         {
+          "name": "ollama-port",
           "containerPort": 11434,
+          "hostPort": 11434,            // явно вказано hostPort
           "protocol": "tcp",
-          "name": "ollama-port"
+          "appProtocol": "http"         // додано appProtocol
         }
       ],
       "environment": [
@@ -258,12 +271,18 @@ resource "aws_ecs_task_definition" "openwebui_task" {
       "essential": true,
       "portMappings": [
         {
-          "name": "webui-port",       // <--- Додано ім'я порту
+          "name": "webui-port",
           "containerPort": 8080,
-          "protocol": "tcp"
+          "hostPort": 8080,
+          "protocol": "tcp",
+          "appProtocol": "http"
         }
       ],
       "environment": [
+        {
+          "name": "DATABASE_URL",
+          "value": "postgresql://dbuser:${var.db_password}@${aws_db_instance.rds_instance.address}:${aws_db_instance.rds_instance.port}/mydatabase"
+        },
         {
           "name": "OLLAMA_BASE_URL",
           "value": "http://ollama.internal:11434"
@@ -276,10 +295,70 @@ resource "aws_ecs_task_definition" "openwebui_task" {
           "name": "OLLAMA_API_BASE_URL",
           "value": "http://ollama.internal:11434"
         }
-      ]
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/openwebui-service",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "openwebui"
+        }
+      }
     }
   ])
 }
+
+resource "aws_ecs_task_definition" "grafana_agent" {
+  family                   = "grafana-agent-flow"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      "name": "grafana-agent",
+      "image": "590183928377.dkr.ecr.us-east-1.amazonaws.com/ollama:latest",
+      "essential": true,
+      "command": ["--config.file=/etc/agent/agent-config.yaml", "--mode=flow"],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/grafana-agent",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "grafana-agent"
+        }
+      }
+    }
+  ])
+}
+
+resource "aws_security_group" "grafana_agent_sg" {
+  name   = "ecs-grafana-agent-sg"
+  vpc_id = aws_vpc.main.id
+
+  ingress {
+    description = "Allow all traffic within VPC"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
+  egress {
+    description = "Allow outbound traffic to any destination"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "ECS Grafana Agent SG"
+  }
+}
+
 
 resource "aws_security_group" "ollama_sg" {
   name   = "ecs-ollama-sg"
@@ -464,6 +543,26 @@ resource "aws_ecs_service" "webui_service" {
   }
 }
 
+resource "aws_ecs_service" "grafana_agent" {
+  name            = "grafana-agent"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.grafana_agent.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = [for subnet in aws_subnet.private : subnet.id]
+    security_groups  = [aws_security_group.grafana_agent_sg.id]
+    assign_public_ip = false
+  }
+
+  deployment_minimum_healthy_percent = 50
+  deployment_maximum_percent         = 200
+
+  depends_on = [aws_cloudwatch_log_group.openwebui_log_group]  # або інша лог-група, якщо потрібно
+}
+
+
 resource "aws_security_group" "rds_sg" {
   name   = "rds-sg"
   vpc_id = aws_vpc.main.id
@@ -472,7 +571,7 @@ resource "aws_security_group" "rds_sg" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.ecs_service.id]
+    cidr_blocks = [aws_vpc.main.cidr_block]
   }
 
   egress {
@@ -496,15 +595,6 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
   }
 }
 
-
-resource "aws_db_subnet_group" "rds_subnet_group" {
-  name       = "rds-subnet-group-ecs"
-  subnet_ids = values(aws_subnet.rds)[*].id  
-
-  tags = {
-    Name = "RDS Subnet Group"
-  }
-}
 
 resource "aws_db_instance" "rds_instance" {
   allocated_storage    = var.db_allocated_storage

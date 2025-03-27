@@ -1,0 +1,15 @@
+server:
+  log_level: info
+
+metrics:
+  global:
+    scrape_interval: 15s
+  configs:
+    - name: ecs-services
+      scrape_configs:
+        - job_name: "ollama"
+          static_configs:
+            - targets: ["ollama.internal:11434"]
+        - job_name: "openwebui"
+          static_configs:
+            - targets: ["webui.internal:8080"]
