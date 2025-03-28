@@ -153,13 +153,17 @@ resource "aws_cloudwatch_metric_alarm" "webui_tasks_low" {
   threshold           = 1
   metric_name         = "RunningTaskCount"
   namespace           = "AWS/ECS"
-  period              = 60
+  period              = 300
   statistic           = "Average"
+  treat_missing_data  = "notBreaching"
 
   dimensions = {
     ClusterName = aws_ecs_cluster.main.name
     ServiceName = aws_ecs_service.webui_service.name
   }
 
-alarm_actions = [aws_sns_topic.alerts_topic.arn]
+  alarm_actions = [
+    aws_sns_topic.alerts_topic.arn
+  ]
 }
+

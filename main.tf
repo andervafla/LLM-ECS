@@ -212,11 +212,6 @@ resource "aws_cloudwatch_log_group" "ollama_log_group" {
   retention_in_days = 7
 }
 
-resource "aws_cloudwatch_log_group" "cloudwatch_log_group" {
-  name              = "/ecs/cloudwatch-exporter"
-  retention_in_days = 7
-}
-
 resource "aws_ecs_cluster" "main" {
   name = "ecs-cluster"
 }
