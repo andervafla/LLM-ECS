@@ -316,35 +316,6 @@ resource "aws_ecs_task_definition" "openwebui_task" {
           "awslogs-stream-prefix": "openwebui"
         }
       }
-    },
-    {
-      "name": "cloudwatch-exporter",
-      "image": "your-repo/cloudwatch-exporter:latest",  // Замініть your-repo на ім'я вашого образу в реєстрі
-      "essential": false,
-      "portMappings": [
-        {
-          "containerPort": 9106,
-          "hostPort": 9106,
-          "protocol": "tcp"
-        }
-      ],
-      "environment": [
-        {
-          "name": "AWS_REGION",
-          "value": "us-east-1"
-        }
-      ],
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/cloudwatch-exporter",
-          "awslogs-region": "us-east-1",
-          "awslogs-stream-prefix": "cloudwatch-exporter"
-        }
-      },
-      "command": [
-        "--config.file=/config/cloudwatch_exporter_config.yml"
-      ]
     }
   ])
 }
