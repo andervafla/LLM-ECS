@@ -214,6 +214,11 @@ resource "aws_cloudwatch_log_group" "ollama_log_group" {
 
 resource "aws_ecs_cluster" "main" {
   name = "ecs-cluster"
+
+   setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
 }
 
 resource "aws_service_discovery_http_namespace" "service_namespace" {
