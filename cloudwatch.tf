@@ -145,25 +145,24 @@ resource "aws_cloudwatch_metric_alarm" "webui_memory_high" {
   alarm_actions = [aws_sns_topic.alerts_topic.arn]
 }
 
-resource "aws_cloudwatch_metric_alarm" "webui_tasks_low" {
-  alarm_name          = "webui-service-running-tasks-low"
-  alarm_description   = "Alarm if webui-service has fewer than 1 running task"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = 1
-  threshold           = 1
-  metric_name         = "RunningTaskCount"
+resource "aws_cloudwatch_metric_alarm" "openwebui_not_running" {
+  alarm_name          = "openwebui-container-not-running"
+  alarm_description   = "Alarm if the openwebui container is not running (RunningTaskCount < 1)"
   namespace           = "AWS/ECS"
-  period              = 300
+  metric_name         = "RunningTaskCount"
   statistic           = "Average"
-  treat_missing_data  = "notBreaching"
+  period              = 300
+  evaluation_periods  = 1
+  comparison_operator = "LessThanThreshold"
+  threshold           = 1
+  treat_missing_data  = "breaching"
 
   dimensions = {
     ClusterName = aws_ecs_cluster.main.name
     ServiceName = aws_ecs_service.webui_service.name
   }
 
-  alarm_actions = [
-    aws_sns_topic.alerts_topic.arn
-  ]
+  alarm_actions = [aws_sns_topic.alerts_topic.arn]
 }
+
 
