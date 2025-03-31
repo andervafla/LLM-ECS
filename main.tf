@@ -238,7 +238,7 @@ resource "aws_ecs_task_definition" "ollama_task" {
   container_definitions = jsonencode([
     {
       "name": "ollama",
-      "image": "590183928377.dkr.ecr.us-east-1.amazonaws.com/ollama:latest",
+      "image": var.ollama_image,
       "essential": true,
       "portMappings": [
         {
