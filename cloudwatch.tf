@@ -108,7 +108,7 @@ resource "aws_cloudwatch_metric_alarm" "db_low_freeable_memory" {
 
 
 resource "aws_cloudwatch_metric_alarm" "webui_cpu_high" {
-  alarm_name          = "[llm]-[test]-[ecs]-[cpu-high]"
+  alarm_name          = "[llm]-[test]-[ecs]-[cpu-high]-[webui]"
   alarm_description   = "Alarm if CPU usage of webui-service > 80% for 1 minute"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
@@ -127,7 +127,7 @@ resource "aws_cloudwatch_metric_alarm" "webui_cpu_high" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "webui_memory_high" {
-  alarm_name          = "[llm]-[test]-[ecs]-[memory-high]"
+  alarm_name          = "[llm]-[test]-[ecs]-[memory-high]-[webui]"
   alarm_description   = "Alarm if Memory usage of webui-service > 80% for 1 minute"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
@@ -146,7 +146,7 @@ resource "aws_cloudwatch_metric_alarm" "webui_memory_high" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "ecs_service_activity" {
-  alarm_name          = "[llm]-[test]-[ecs]-[no-activity]"
+  alarm_name          = "[llm]-[test]-[ecs]-[no-activity]-[webui]"
   alarm_description   = "No activity"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 3  

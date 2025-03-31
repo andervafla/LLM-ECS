@@ -422,6 +422,12 @@ resource "aws_lb_target_group" "openwebui_tg" {
     path                = "/"
     protocol            = "HTTP"
   }
+
+    stickiness {
+    type            = "lb_cookie"       # Використовує вбудований cookie від ALB
+    enabled         = true
+    cookie_duration = 86400             # Тривалість cookie в секундах (наприклад, 1 доба)
+  }
 }
 
 resource "aws_lb_listener" "openwebui_listener" {
