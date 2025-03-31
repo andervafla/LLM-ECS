@@ -439,7 +439,7 @@ resource "aws_ecs_service" "ollama_service" {
   name                   = "ollama-service"
   cluster                = aws_ecs_cluster.main.id
   task_definition        = aws_ecs_task_definition.ollama_task.arn
-  desired_count          = 1
+  desired_count          = 2
   launch_type            = "FARGATE"
   platform_version       = "1.4.0"
   enable_execute_command = true
@@ -469,7 +469,7 @@ resource "aws_ecs_service" "webui_service" {
   name                   = "webui-service"
   cluster                = aws_ecs_cluster.main.id
   task_definition        = aws_ecs_task_definition.openwebui_task.arn
-  desired_count          = 1
+  desired_count          = 2
   launch_type            = "FARGATE"
   platform_version       = "1.4.0"
   enable_execute_command = true
