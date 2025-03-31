@@ -215,7 +215,7 @@ resource "aws_cloudwatch_log_group" "ollama_log_group" {
 resource "aws_ecs_cluster" "main" {
   name = "ecs-cluster"
 
-   setting {
+  setting {
     name  = "containerInsights"
     value = "enabled"
   }
@@ -538,6 +538,7 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
 
 
 resource "aws_db_instance" "rds_instance" {
+  identifier           = "rds"
   allocated_storage    = var.db_allocated_storage
   engine               = "postgres"
   engine_version       = "15"

@@ -108,7 +108,7 @@ resource "aws_cloudwatch_metric_alarm" "db_low_freeable_memory" {
 
 
 resource "aws_cloudwatch_metric_alarm" "webui_cpu_high" {
-  alarm_name          = "webui-service-cpu-high"
+  alarm_name          = "[llm]-[test]-[ecs]-[cpu-high]"
   alarm_description   = "Alarm if CPU usage of webui-service > 80% for 1 minute"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
@@ -127,7 +127,7 @@ resource "aws_cloudwatch_metric_alarm" "webui_cpu_high" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "webui_memory_high" {
-  alarm_name          = "webui-service-memory-high"
+  alarm_name          = "[llm]-[test]-[ecs]-[memory-high]"
   alarm_description   = "Alarm if Memory usage of webui-service > 80% for 1 minute"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 1
@@ -145,24 +145,80 @@ resource "aws_cloudwatch_metric_alarm" "webui_memory_high" {
   alarm_actions = [aws_sns_topic.alerts_topic.arn]
 }
 
-resource "aws_cloudwatch_metric_alarm" "openwebui_not_running" {
-  alarm_name          = "openwebui-container-not-running"
-  alarm_description   = "Alarm if the openwebui container is not running (RunningTaskCount < 1)"
-  namespace           = "AWS/ECS"
-  metric_name         = "RunningTaskCount"
-  statistic           = "Average"
-  period              = 300
-  evaluation_periods  = 1
+resource "aws_cloudwatch_metric_alarm" "ecs_service_activity" {
+  alarm_name          = "[llm]-[test]-[ecs]-[no-activity]"
+  alarm_description   = "No activity"
   comparison_operator = "LessThanThreshold"
-  threshold           = 1
+  evaluation_periods  = 3  
+  threshold           = 0.1  
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 300
+  statistic           = "Maximum"  
   treat_missing_data  = "breaching"
-
+  
   dimensions = {
     ClusterName = aws_ecs_cluster.main.name
     ServiceName = aws_ecs_service.webui_service.name
+  }
+  
+  alarm_actions = [aws_sns_topic.alerts_topic.arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "ollama_cpu_high" {
+  alarm_name          = "[llm]-[test]-[ecs]-[cpu-high]-[ollama]"
+  alarm_description   = "Alarm if CPU usage of ollama-service > 80% for 1 minute"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  threshold           = 80
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Average"
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.ollama_service.name
   }
 
   alarm_actions = [aws_sns_topic.alerts_topic.arn]
 }
 
+resource "aws_cloudwatch_metric_alarm" "ollama_memory_high" {
+  alarm_name          = "[llm]-[test]-[ecs]-[memory-high]-[ollama]"
+  alarm_description   = "Alarm if Memory usage of ollama-service > 80% for 1 minute"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  threshold           = 80
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Average"
 
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.ollama_service.name
+  }
+
+  alarm_actions = [aws_sns_topic.alerts_topic.arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "ollama_service_activity" {
+  alarm_name          = "[llm]-[test]-[ecs]-[no-activity]-[ollama]"
+  alarm_description   = "No activity"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 3
+  threshold           = 0.1
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 300
+  statistic           = "Maximum"
+  treat_missing_data  = "breaching"
+  
+  dimensions = {
+    ClusterName = aws_ecs_cluster.main.name
+    ServiceName = aws_ecs_service.ollama_service.name
+  }
+  
+  alarm_actions = [aws_sns_topic.alerts_topic.arn]
+}
